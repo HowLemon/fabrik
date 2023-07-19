@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="fabrik.js"></script>
+    <style>
+        #playground .circle {
+            stroke: rgb(78, 78, 78);
+            stroke-width: 1;
+            fill: wheat;
+        }
+
+        #playground .circle.locked {
+            fill: rgb(245, 179, 225);
+        }
+
+        #playground path {
+            stroke: rgb(78, 78, 78);
+            stroke-width: 1;
+            fill: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        <svg id="playground" width="1000" height="1000">
+            <path id="string" d="" />
+        </svg>
+    </div>
+    <button onclick="togglePullMode()">pull mode</button>
+</body>
+<script>
+    var canvas = document.getElementById("playground");
+    var wire = document.getElementById("string");
+
+    var lastPoint = null;
+    var points = []
+    var grabbed = null;
+    var pullMode = false;
+
+    var clothWidth = 10;
+    var clothHeight = 7;
+
+    var cloth = [];
+
+    var pVelocity = [];
+
+    var randomWidth = [...Array(clothWidth).keys()]
+    var randomHeight = [...Array(clothHeight).keys()]
+
+    function init() {
+        for (let i = 0; i < clothHeight; i++) {
+            cloth.push([]);
+            pVelocity.push([]);
+            for (let j = 0; j < clothWidth; j++) {
+                let a = new Point(canvas, j * 100 + 30, i * 100 + 30);
+
+
+                a.clicked = () => {
+                    if (!grabbed) grabbed = a;
+                    a.locked = true;
+                }
+
+                if (i > 0) a.addConnection(cloth[i - 1][j]);
+                if (j > 0) a.addConnection(cloth[i][j - 1]);
+                cloth[i].push(a);
+                pVelocity[i].push({ x: 0, y: 0 });
+            }
+        }
+        for (let i = 0; i < clothHeight; i++) {
+            for (let j = 0; j < clothWidth; j++) {
+                if (i == 0  ) {
+                    cloth[i][j].locked = true;
+                }
+            }
+        }
+    };
+
+
+    canvas.addEventListener("mouseup", e => {
+        grabbed.locked = false;
+        grabbed = null;
+    })
+
+    canvas.addEventListener("mousemove", e => {
+        if (grabbed) {
+            grabbed.x = e.offsetX;
+            grabbed.y = e.offsetY;
+        }
+    })
+
+    init();
+
+    // canvas.addEventListener("click", e => {
+    //     if ((e.target != canvas) || pullMode) return;
+    //     let a = new Point(canvas, e.offsetX - 5, e.offsetY - 5);
+    //     if (lastPoint) {
+    //         a.addConnection(lastPoint);
+    //     }
+    //     lastPoint = a;
+    //     points.push(a);
+    // })
+
+    // function togglePullMode() {
+    //     pullMode = !pullMode;
+    //     points[3].locked = !points[3].locked
+    // }
+
+    // canvas.addEventListener("mousemove", e => {
+    //     if (pullMode) {
+    //         points[3].x = e.offsetX - 5;
+    //         points[3].y = e.offsetY - 5;
+    //     }
+    // })
+
+    // function animate() {
+    //     points.forEach(e => {
+    //         e.render();
+    //     })
+
+    //     if (points.length > 0) {
+    //         stext = ""
+    //         points.forEach(e => {
+    //             stext += `L${e.x} ${e.y} `
+    //         })
+    //         stext = "M" + stext.slice(1);
+    //         wire.setAttributeNS(null, 'd', stext);
+    //     }
+
+
+    //     window.requestAnimationFrame(animate);
+    // }
+
+    // window.requestAnimationFrame(animate);
+
+    let tick = 0;
+    async function animate() {
+        tick = Date.now();
+        randomHeight.sort(() => Math.random() - 0.5);
+        randomWidth.sort(() => Math.random() - 0.5);
+        randomHeight.forEach(h => {
+            randomWidth.forEach(w => {
+
+                if (!cloth[h][w].locked) {
+                    cloth[h][w].y += 2 + (pVelocity[h][w].y) * 0.2;
+                    cloth[h][w].x += pVelocity[h][w].x * 0.2;
+                }
+                // console.log(pVelocity[h][w]);
+            })
+        })
+        let stext = ""
+        await cloth.forEach(async (strand,h) => {
+            await strand.forEach(async (e, w) => {
+                let lastX = cloth[h][w].x;
+                let lastY = cloth[h][w].y;
+                
+
+                await cloth[h][w].render();
+
+                pVelocity[h][w] = { x: (cloth[h][w].x - lastX), y: (cloth[h][w].y - lastY)}
+                
+                if(h > 0) stext += `M${e.x} ${e.y} L${cloth[h-1][w].x} ${cloth[h-1][w].y}`
+                if(w > 0) stext += `M${e.x} ${e.y} L${cloth[h][w-1].x} ${cloth[h][w-1].y}`
+            })
+        })
+        wire.setAttributeNS(null, 'd', stext);
+        
+
+        window.requestAnimationFrame(animate);
+    }
+
+    window.requestAnimationFrame(animate);
+</script>
+
+</html>
